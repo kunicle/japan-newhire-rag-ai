@@ -115,3 +115,91 @@ def test_rag_generate_rejects_missing_null_or_empty_evidence(client, body):
     response = client.post("/rag/generate", json=body)
 
     assert response.status_code == 400
+
+
+def test_embed_returns_deterministic_stub_result(client):
+    response = client.post(
+        "/embed",
+        json={
+            "document_chunk_id": 101,
+            "chunk_content": "example",
+            "provider_name": "provider-a",
+            "model_name": "model-a",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.get_json() == {
+        "vector_reference": "chunk-101-vector",
+        "embedding_dimension": 3,
+    }
+
+
+@pytest.mark.parametrize(
+    "document_chunk_id",
+    [None, "101", True],
+)
+def test_embed_rejects_invalid_document_chunk_id(client, document_chunk_id):
+    body = valid_embed_body()
+    body["document_chunk_id"] = document_chunk_id
+
+    response = client.post("/embed", json=body)
+
+    assert_malformed_request(response)
+
+
+def test_embed_rejects_missing_document_chunk_id(client):
+    body = valid_embed_body()
+    body.pop("document_chunk_id")
+
+    response = client.post("/embed", json=body)
+
+    assert_malformed_request(response)
+
+
+@pytest.mark.parametrize("field_name", ["chunk_content", "provider_name", "model_name"])
+@pytest.mark.parametrize(
+    "invalid_value",
+    [None, "", "   ", 123],
+)
+def test_embed_rejects_invalid_string_fields(client, field_name, invalid_value):
+    body = valid_embed_body()
+    body[field_name] = invalid_value
+
+    response = client.post("/embed", json=body)
+
+    assert_malformed_request(response)
+
+
+@pytest.mark.parametrize("field_name", ["chunk_content", "provider_name", "model_name"])
+def test_embed_rejects_missing_string_fields(client, field_name):
+    body = valid_embed_body()
+    body.pop(field_name)
+
+    response = client.post("/embed", json=body)
+
+    assert_malformed_request(response)
+
+
+@pytest.mark.parametrize("body", [None, [], "invalid"])
+def test_embed_rejects_missing_or_non_object_body(client, body):
+    if body is None:
+        response = client.post("/embed")
+    else:
+        response = client.post("/embed", json=body)
+
+    assert_malformed_request(response)
+
+
+def valid_embed_body():
+    return {
+        "document_chunk_id": 101,
+        "chunk_content": "example",
+        "provider_name": "provider-a",
+        "model_name": "model-a",
+    }
+
+
+def assert_malformed_request(response):
+    assert response.status_code == 400
+    assert response.get_json() == {"error": "malformed request"}

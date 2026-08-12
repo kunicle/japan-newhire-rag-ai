@@ -74,6 +74,36 @@ def rag_generate():
     )
 
 
+@app.post("/embed")
+def embed():
+    body = request.get_json(silent=True)
+
+    if not isinstance(body, dict):
+        return jsonify(error="malformed request"), 400
+
+    document_chunk_id = body.get("document_chunk_id")
+    chunk_content = body.get("chunk_content")
+    provider_name = body.get("provider_name")
+    model_name = body.get("model_name")
+
+    if not isinstance(document_chunk_id, int) or isinstance(document_chunk_id, bool):
+        return jsonify(error="malformed request"), 400
+
+    if not isinstance(chunk_content, str) or not chunk_content.strip():
+        return jsonify(error="malformed request"), 400
+
+    if not isinstance(provider_name, str) or not provider_name.strip():
+        return jsonify(error="malformed request"), 400
+
+    if not isinstance(model_name, str) or not model_name.strip():
+        return jsonify(error="malformed request"), 400
+
+    return jsonify(
+        vector_reference=f"chunk-{document_chunk_id}-vector",
+        embedding_dimension=3,
+    )
+
+
 if __name__ == "__main__":
     app.run(
         host="127.0.0.1",
