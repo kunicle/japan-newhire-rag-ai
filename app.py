@@ -20,6 +20,8 @@ def rag_search():
 
     question = body.get("question")
     allowed_document_version_ids = body.get("allowed_document_version_ids")
+    provider_name = body.get("provider_name")
+    model_name = body.get("model_name")
 
     if not isinstance(question, str) or not question.strip():
         return jsonify(error="malformed request"), 400
@@ -33,6 +35,12 @@ def rag_search():
             for document_version_id in allowed_document_version_ids
         )
     ):
+        return jsonify(error="malformed request"), 400
+
+    if not isinstance(provider_name, str) or not provider_name.strip():
+        return jsonify(error="malformed request"), 400
+
+    if not isinstance(model_name, str) or not model_name.strip():
         return jsonify(error="malformed request"), 400
 
     return jsonify(

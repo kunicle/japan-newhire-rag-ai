@@ -12,10 +12,7 @@ def client():
 def test_rag_search_returns_stub_result(client):
     response = client.post(
         "/rag/search",
-        json={
-            "question": "육아휴직 규정을 알려주세요",
-            "allowed_document_version_ids": [101, 102, 205],
-        },
+        json=valid_rag_search_body(),
     )
 
     assert response.status_code == 200
@@ -31,28 +28,54 @@ def test_rag_search_returns_stub_result(client):
 
 
 def test_rag_search_rejects_missing_question(client):
-    response = client.post(
-        "/rag/search",
-        json={"allowed_document_version_ids": [101]},
-    )
+    body = valid_rag_search_body()
+    body.pop("question")
 
-    assert response.status_code == 400
+    response = client.post("/rag/search", json=body)
+
+    assert_malformed_request(response)
 
 
 @pytest.mark.parametrize(
-    "body",
+    "allowed_document_version_ids",
     [
-        {"question": "육아휴직 규정을 알려주세요"},
-        {
-            "question": "육아휴직 규정을 알려주세요",
-            "allowed_document_version_ids": [],
-        },
+        None,
+        [],
     ],
 )
-def test_rag_search_rejects_missing_or_empty_allowed_ids(client, body):
+def test_rag_search_rejects_missing_or_empty_allowed_ids(
+    client, allowed_document_version_ids
+):
+    body = valid_rag_search_body()
+    if allowed_document_version_ids is None:
+        body.pop("allowed_document_version_ids")
+    else:
+        body["allowed_document_version_ids"] = allowed_document_version_ids
+
     response = client.post("/rag/search", json=body)
 
-    assert response.status_code == 400
+    assert_malformed_request(response)
+
+
+@pytest.mark.parametrize("field_name", ["provider_name", "model_name"])
+@pytest.mark.parametrize("invalid_value", [None, "", "   ", 123])
+def test_rag_search_rejects_invalid_model_fields(client, field_name, invalid_value):
+    body = valid_rag_search_body()
+    body[field_name] = invalid_value
+
+    response = client.post("/rag/search", json=body)
+
+    assert_malformed_request(response)
+
+
+@pytest.mark.parametrize("field_name", ["provider_name", "model_name"])
+def test_rag_search_rejects_missing_model_fields(client, field_name):
+    body = valid_rag_search_body()
+    body.pop(field_name)
+
+    response = client.post("/rag/search", json=body)
+
+    assert_malformed_request(response)
 
 
 def test_rag_generate_returns_answer_with_citation_from_evidence(client):
@@ -219,6 +242,15 @@ def valid_embed_body():
         "document_chunk_id": 101,
         "document_version_id": 10,
         "chunk_content": "example",
+        "provider_name": "provider-a",
+        "model_name": "model-a",
+    }
+
+
+def valid_rag_search_body():
+    return {
+        "question": "육아휴직 규정을 알려주세요",
+        "allowed_document_version_ids": [101, 102, 205],
         "provider_name": "provider-a",
         "model_name": "model-a",
     }
