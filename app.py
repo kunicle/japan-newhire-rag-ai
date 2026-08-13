@@ -82,11 +82,15 @@ def embed():
         return jsonify(error="malformed request"), 400
 
     document_chunk_id = body.get("document_chunk_id")
+    document_version_id = body.get("document_version_id")
     chunk_content = body.get("chunk_content")
     provider_name = body.get("provider_name")
     model_name = body.get("model_name")
 
     if not isinstance(document_chunk_id, int) or isinstance(document_chunk_id, bool):
+        return jsonify(error="malformed request"), 400
+
+    if not isinstance(document_version_id, int) or isinstance(document_version_id, bool):
         return jsonify(error="malformed request"), 400
 
     if not isinstance(chunk_content, str) or not chunk_content.strip():

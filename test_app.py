@@ -122,6 +122,7 @@ def test_embed_returns_deterministic_stub_result(client):
         "/embed",
         json={
             "document_chunk_id": 101,
+            "document_version_id": 10,
             "chunk_content": "example",
             "provider_name": "provider-a",
             "model_name": "model-a",
@@ -151,6 +152,28 @@ def test_embed_rejects_invalid_document_chunk_id(client, document_chunk_id):
 def test_embed_rejects_missing_document_chunk_id(client):
     body = valid_embed_body()
     body.pop("document_chunk_id")
+
+    response = client.post("/embed", json=body)
+
+    assert_malformed_request(response)
+
+
+@pytest.mark.parametrize(
+    "document_version_id",
+    [None, "10", True],
+)
+def test_embed_rejects_invalid_document_version_id(client, document_version_id):
+    body = valid_embed_body()
+    body["document_version_id"] = document_version_id
+
+    response = client.post("/embed", json=body)
+
+    assert_malformed_request(response)
+
+
+def test_embed_rejects_missing_document_version_id(client):
+    body = valid_embed_body()
+    body.pop("document_version_id")
 
     response = client.post("/embed", json=body)
 
@@ -194,6 +217,7 @@ def test_embed_rejects_missing_or_non_object_body(client, body):
 def valid_embed_body():
     return {
         "document_chunk_id": 101,
+        "document_version_id": 10,
         "chunk_content": "example",
         "provider_name": "provider-a",
         "model_name": "model-a",
