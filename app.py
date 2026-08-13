@@ -1,6 +1,37 @@
+import os
+
 from flask import Flask, jsonify, request
+from openai import OpenAI
+from qdrant_client import models
+
+from embedding_orchestrator import EmbeddingOrchestrator
+from embedding_service import EmbeddingService
+from qdrant_store import QdrantStore, create_qdrant_client
 
 app = Flask(__name__)
+
+
+def _get_embedding_orchestrator():
+    orchestrator = app.extensions.get("embedding_orchestrator")
+    if orchestrator is not None:
+        return orchestrator
+
+    vector_db_url = os.getenv("VECTOR_DB_URL")
+    if not vector_db_url or not vector_db_url.strip():
+        raise RuntimeError("VECTOR_DB_URL is required")
+
+    embedding_service = EmbeddingService(OpenAI())
+    qdrant_client = create_qdrant_client(
+        url=vector_db_url,
+        api_key=os.getenv("QDRANT_API_KEY"),
+    )
+    orchestrator = EmbeddingOrchestrator(
+        embedding_service,
+        QdrantStore(qdrant_client),
+        models.Distance.COSINE,
+    )
+    app.extensions["embedding_orchestrator"] = orchestrator
+    return orchestrator
 
 
 @app.get("/health")
@@ -110,9 +141,17 @@ def embed():
     if not isinstance(model_name, str) or not model_name.strip():
         return jsonify(error="malformed request"), 400
 
+    result = _get_embedding_orchestrator().process(
+        document_chunk_id,
+        document_version_id,
+        chunk_content,
+        provider_name,
+        model_name,
+    )
+
     return jsonify(
-        vector_reference=f"chunk-{document_chunk_id}-vector",
-        embedding_dimension=3,
+        vector_reference=result.vector_reference,
+        embedding_dimension=result.embedding_dimension,
     )
 
 

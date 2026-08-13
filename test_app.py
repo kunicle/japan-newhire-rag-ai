@@ -1,3 +1,6 @@
+from types import SimpleNamespace
+from unittest.mock import Mock, patch
+
 import pytest
 
 from app import app
@@ -140,23 +143,29 @@ def test_rag_generate_rejects_missing_null_or_empty_evidence(client, body):
     assert response.status_code == 400
 
 
-def test_embed_returns_deterministic_stub_result(client):
-    response = client.post(
-        "/embed",
-        json={
-            "document_chunk_id": 101,
-            "document_version_id": 10,
-            "chunk_content": "example",
-            "provider_name": "provider-a",
-            "model_name": "model-a",
-        },
+@patch("app._get_embedding_orchestrator")
+def test_embed_calls_orchestrator_and_returns_result(get_orchestrator, client):
+    orchestrator = Mock()
+    orchestrator.process.return_value = SimpleNamespace(
+        vector_reference="rag_chunks_openai_text_embedding_3_small:101",
+        embedding_dimension=1536,
     )
+    get_orchestrator.return_value = orchestrator
+
+    response = client.post("/embed", json=valid_embed_body())
 
     assert response.status_code == 200
     assert response.get_json() == {
-        "vector_reference": "chunk-101-vector",
-        "embedding_dimension": 3,
+        "vector_reference": "rag_chunks_openai_text_embedding_3_small:101",
+        "embedding_dimension": 1536,
     }
+    orchestrator.process.assert_called_once_with(
+        101,
+        10,
+        "청크 본문",
+        "openai",
+        "text-embedding-3-small",
+    )
 
 
 @pytest.mark.parametrize(
@@ -241,9 +250,9 @@ def valid_embed_body():
     return {
         "document_chunk_id": 101,
         "document_version_id": 10,
-        "chunk_content": "example",
-        "provider_name": "provider-a",
-        "model_name": "model-a",
+        "chunk_content": "청크 본문",
+        "provider_name": "openai",
+        "model_name": "text-embedding-3-small",
     }
 
 
