@@ -98,3 +98,48 @@ def test_ensure_collection_creates_missing_collection():
     )
     assert call.kwargs["vectors_config"].size == 1024
     assert call.kwargs["vectors_config"].distance == models.Distance.COSINE
+
+
+def test_upsert_chunk_embedding_writes_exact_point_and_waits():
+    client = Mock()
+    store = QdrantStore(client)
+
+    store.upsert_chunk_embedding(
+        collection_name="rag_chunks_provider_a_model_a",
+        document_chunk_id=101,
+        document_version_id=10,
+        chunk_content="actual chunk content",
+        vector=[0.1, 0.2, 0.3],
+    )
+
+    client.upsert.assert_called_once()
+    call = client.upsert.call_args
+    assert call.kwargs["collection_name"] == "rag_chunks_provider_a_model_a"
+    assert call.kwargs["wait"] is True
+    assert len(call.kwargs["points"]) == 1
+
+    point = call.kwargs["points"][0]
+    assert point.id == 101
+    assert point.vector == [0.1, 0.2, 0.3]
+    assert point.payload == {
+        "document_chunk_id": 101,
+        "document_version_id": 10,
+        "chunk_content": "actual chunk content",
+    }
+    client.collection_exists.assert_not_called()
+    client.create_collection.assert_not_called()
+
+
+def test_upsert_chunk_embedding_propagates_client_exception():
+    client = Mock()
+    client.upsert.side_effect = RuntimeError("qdrant unavailable")
+    store = QdrantStore(client)
+
+    with pytest.raises(RuntimeError, match="qdrant unavailable"):
+        store.upsert_chunk_embedding(
+            collection_name="rag_chunks_provider_a_model_a",
+            document_chunk_id=101,
+            document_version_id=10,
+            chunk_content="actual chunk content",
+            vector=[0.1, 0.2, 0.3],
+        )

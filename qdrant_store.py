@@ -45,3 +45,27 @@ class QdrantStore:
                 distance=distance,
             ),
         )
+
+    def upsert_chunk_embedding(
+        self,
+        collection_name,
+        document_chunk_id,
+        document_version_id,
+        chunk_content,
+        vector,
+    ):
+        point = models.PointStruct(
+            id=document_chunk_id,
+            vector=vector,
+            payload={
+                "document_chunk_id": document_chunk_id,
+                "document_version_id": document_version_id,
+                "chunk_content": chunk_content,
+            },
+        )
+
+        self._client.upsert(
+            collection_name=collection_name,
+            points=[point],
+            wait=True,
+        )
