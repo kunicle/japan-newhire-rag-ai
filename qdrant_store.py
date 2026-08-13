@@ -1,6 +1,15 @@
 import re
+from dataclasses import dataclass
 
 from qdrant_client import QdrantClient, models
+
+
+@dataclass(frozen=True)
+class QdrantChunkSearchResult:
+    document_chunk_id: int
+    document_version_id: int
+    chunk_content: str
+    score: float
 
 
 def normalize_collection_component(value):
@@ -68,4 +77,64 @@ class QdrantStore:
             collection_name=collection_name,
             points=[point],
             wait=True,
+        )
+
+    def search_chunks(
+        self,
+        collection_name,
+        query_vector,
+        allowed_document_version_ids,
+        limit,
+    ):
+        if not self._client.collection_exists(collection_name):
+            return []
+
+        response = self._client.query_points(
+            collection_name=collection_name,
+            query=query_vector,
+            query_filter=models.Filter(
+                must=[
+                    models.FieldCondition(
+                        key="document_version_id",
+                        match=models.MatchAny(any=allowed_document_version_ids),
+                    )
+                ]
+            ),
+            limit=limit,
+            with_payload=True,
+            with_vectors=False,
+            score_threshold=0.0,
+        )
+
+        return [self._map_search_result(point) for point in response.points]
+
+    @staticmethod
+    def _map_search_result(point):
+        payload = point.payload
+        if not isinstance(payload, dict):
+            raise ValueError("Qdrant search result payload is malformed")
+
+        document_chunk_id = payload.get("document_chunk_id")
+        document_version_id = payload.get("document_version_id")
+        chunk_content = payload.get("chunk_content")
+        score = point.score
+
+        if not isinstance(document_chunk_id, int) or isinstance(
+            document_chunk_id, bool
+        ):
+            raise ValueError("Qdrant search result payload is malformed")
+        if not isinstance(document_version_id, int) or isinstance(
+            document_version_id, bool
+        ):
+            raise ValueError("Qdrant search result payload is malformed")
+        if not isinstance(chunk_content, str):
+            raise ValueError("Qdrant search result payload is malformed")
+        if not isinstance(score, (int, float)) or isinstance(score, bool):
+            raise ValueError("Qdrant search result score is malformed")
+
+        return QdrantChunkSearchResult(
+            document_chunk_id=document_chunk_id,
+            document_version_id=document_version_id,
+            chunk_content=chunk_content,
+            score=score,
         )

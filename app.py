@@ -7,8 +7,36 @@ from qdrant_client import models
 from embedding_orchestrator import EmbeddingOrchestrator
 from embedding_service import EmbeddingService
 from qdrant_store import QdrantStore, create_qdrant_client
+from rag_search_orchestrator import RagSearchOrchestrator
 
 app = Flask(__name__)
+RAG_SEARCH_LIMIT = 5
+
+
+def _get_embedding_service():
+    service = app.extensions.get("embedding_service")
+    if service is None:
+        service = EmbeddingService(OpenAI())
+        app.extensions["embedding_service"] = service
+    return service
+
+
+def _get_qdrant_store():
+    store = app.extensions.get("qdrant_store")
+    if store is not None:
+        return store
+
+    vector_db_url = os.getenv("VECTOR_DB_URL")
+    if not vector_db_url or not vector_db_url.strip():
+        raise RuntimeError("VECTOR_DB_URL is required")
+
+    client = create_qdrant_client(
+        url=vector_db_url,
+        api_key=os.getenv("QDRANT_API_KEY"),
+    )
+    store = QdrantStore(client)
+    app.extensions["qdrant_store"] = store
+    return store
 
 
 def _get_embedding_orchestrator():
@@ -16,21 +44,24 @@ def _get_embedding_orchestrator():
     if orchestrator is not None:
         return orchestrator
 
-    vector_db_url = os.getenv("VECTOR_DB_URL")
-    if not vector_db_url or not vector_db_url.strip():
-        raise RuntimeError("VECTOR_DB_URL is required")
-
-    embedding_service = EmbeddingService(OpenAI())
-    qdrant_client = create_qdrant_client(
-        url=vector_db_url,
-        api_key=os.getenv("QDRANT_API_KEY"),
-    )
     orchestrator = EmbeddingOrchestrator(
-        embedding_service,
-        QdrantStore(qdrant_client),
+        _get_embedding_service(),
+        _get_qdrant_store(),
         models.Distance.COSINE,
     )
     app.extensions["embedding_orchestrator"] = orchestrator
+    return orchestrator
+
+
+def _get_rag_search_orchestrator():
+    orchestrator = app.extensions.get("rag_search_orchestrator")
+    if orchestrator is None:
+        orchestrator = RagSearchOrchestrator(
+            _get_embedding_service(),
+            _get_qdrant_store(),
+            RAG_SEARCH_LIMIT,
+        )
+        app.extensions["rag_search_orchestrator"] = orchestrator
     return orchestrator
 
 
@@ -74,14 +105,22 @@ def rag_search():
     if not isinstance(model_name, str) or not model_name.strip():
         return jsonify(error="malformed request"), 400
 
+    results = _get_rag_search_orchestrator().process(
+        question,
+        allowed_document_version_ids,
+        provider_name,
+        model_name,
+    )
+
     return jsonify(
         search_results=[
             {
-                "document_version_id": allowed_document_version_ids[0],
-                "chunk_id": 5001,
-                "content": "예시 규정 텍스트",
-                "similarity_score": 0.87,
+                "document_version_id": result.document_version_id,
+                "chunk_id": result.document_chunk_id,
+                "content": result.chunk_content,
+                "similarity_score": result.score,
             }
+            for result in results
         ]
     )
 

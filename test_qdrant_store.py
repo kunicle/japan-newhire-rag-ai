@@ -1,3 +1,4 @@
+from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 import pytest
@@ -143,3 +144,85 @@ def test_upsert_chunk_embedding_propagates_client_exception():
             chunk_content="actual chunk content",
             vector=[0.1, 0.2, 0.3],
         )
+
+
+def test_search_chunks_returns_empty_when_collection_is_missing():
+    client = Mock()
+    client.collection_exists.return_value = False
+    store = QdrantStore(client)
+
+    assert store.search_chunks("collection", [0.1], [10], limit=5) == []
+    client.query_points.assert_not_called()
+
+
+def test_search_chunks_queries_with_hard_scope_and_maps_raw_score():
+    client = Mock()
+    client.collection_exists.return_value = True
+    client.query_points.return_value = SimpleNamespace(
+        points=[
+            SimpleNamespace(
+                score=0.87,
+                payload={
+                    "document_chunk_id": 5001,
+                    "document_version_id": 10,
+                    "chunk_content": "예시 규정 텍스트",
+                },
+            )
+        ]
+    )
+    store = QdrantStore(client)
+
+    results = store.search_chunks("collection", [0.1, 0.2], [10], limit=5)
+
+    call = client.query_points.call_args
+    assert call.kwargs["collection_name"] == "collection"
+    assert call.kwargs["query"] == [0.1, 0.2]
+    assert call.kwargs["limit"] == 5
+    assert call.kwargs["with_payload"] is True
+    assert call.kwargs["with_vectors"] is False
+    assert call.kwargs["score_threshold"] == 0.0
+    query_filter = call.kwargs["query_filter"]
+    assert len(query_filter.must) == 1
+    condition = query_filter.must[0]
+    assert condition.key == "document_version_id"
+    assert condition.match.any == [10]
+    assert len(results) == 1
+    assert results[0].document_chunk_id == 5001
+    assert results[0].document_version_id == 10
+    assert results[0].chunk_content == "예시 규정 텍스트"
+    assert results[0].score == 0.87
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"document_version_id": 10, "chunk_content": "content"},
+        {"document_chunk_id": 5001, "chunk_content": "content"},
+        {"document_chunk_id": 5001, "document_version_id": 10},
+        {
+            "document_chunk_id": True,
+            "document_version_id": 10,
+            "chunk_content": "content",
+        },
+        {
+            "document_chunk_id": 5001,
+            "document_version_id": "10",
+            "chunk_content": "content",
+        },
+        {
+            "document_chunk_id": 5001,
+            "document_version_id": 10,
+            "chunk_content": None,
+        },
+    ],
+)
+def test_search_chunks_rejects_malformed_payload(payload):
+    client = Mock()
+    client.collection_exists.return_value = True
+    client.query_points.return_value = SimpleNamespace(
+        points=[SimpleNamespace(score=0.87, payload=payload)]
+    )
+    store = QdrantStore(client)
+
+    with pytest.raises(ValueError, match="payload is malformed"):
+        store.search_chunks("collection", [0.1], [10], limit=5)

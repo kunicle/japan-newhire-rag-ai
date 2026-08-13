@@ -4,6 +4,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from app import app
+from qdrant_store import QdrantChunkSearchResult
 
 
 @pytest.fixture
@@ -12,22 +13,41 @@ def client():
     return app.test_client()
 
 
-def test_rag_search_returns_stub_result(client):
+@patch("app._get_rag_search_orchestrator")
+def test_rag_search_calls_orchestrator_and_maps_results(get_orchestrator, client):
+    orchestrator = Mock()
+    orchestrator.process.return_value = [
+        QdrantChunkSearchResult(
+            document_chunk_id=5001,
+            document_version_id=10,
+            chunk_content="예시 규정 텍스트",
+            score=0.87,
+        )
+    ]
+    get_orchestrator.return_value = orchestrator
+
     response = client.post(
         "/rag/search",
         json=valid_rag_search_body(),
     )
 
     assert response.status_code == 200
-    search_results = response.get_json()["search_results"]
-    assert isinstance(search_results, list)
-    assert len(search_results) == 1
-    assert set(search_results[0]) == {
-        "document_version_id",
-        "chunk_id",
-        "content",
-        "similarity_score",
+    assert response.get_json() == {
+        "search_results": [
+            {
+                "document_version_id": 10,
+                "chunk_id": 5001,
+                "content": "예시 규정 텍스트",
+                "similarity_score": 0.87,
+            }
+        ]
     }
+    orchestrator.process.assert_called_once_with(
+        "육아휴직 규정을 알려주세요",
+        [101, 102, 205],
+        "openai",
+        "text-embedding-3-small",
+    )
 
 
 def test_rag_search_rejects_missing_question(client):
@@ -260,8 +280,8 @@ def valid_rag_search_body():
     return {
         "question": "육아휴직 규정을 알려주세요",
         "allowed_document_version_ids": [101, 102, 205],
-        "provider_name": "provider-a",
-        "model_name": "model-a",
+        "provider_name": "openai",
+        "model_name": "text-embedding-3-small",
     }
 
 
