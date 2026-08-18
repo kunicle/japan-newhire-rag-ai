@@ -6,6 +6,7 @@ from qdrant_client import models
 
 from embedding_orchestrator import EmbeddingOrchestrator
 from embedding_service import EmbeddingService
+from generation_service import GenerationService
 from qdrant_store import QdrantStore, create_qdrant_client
 from rag_search_orchestrator import RagSearchOrchestrator
 
@@ -18,6 +19,14 @@ def _get_embedding_service():
     if service is None:
         service = EmbeddingService(OpenAI())
         app.extensions["embedding_service"] = service
+    return service
+
+
+def _get_generation_service():
+    service = app.extensions.get("generation_service")
+    if service is None:
+        service = GenerationService(OpenAI())
+        app.extensions["generation_service"] = service
     return service
 
 
@@ -146,10 +155,8 @@ def rag_generate():
     ):
         return jsonify(error="malformed request"), 400
 
-    return jsonify(
-        answer="예시 답변 텍스트",
-        cited_chunk_ids=[evidence[0]["chunk_id"]],
-    )
+    answer, citations = _get_generation_service().generate(question, evidence)
+    return jsonify(answer=answer, cited_chunk_ids=citations)
 
 
 @app.post("/embed")

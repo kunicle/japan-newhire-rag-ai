@@ -101,7 +101,16 @@ def test_rag_search_rejects_missing_model_fields(client, field_name):
     assert_malformed_request(response)
 
 
-def test_rag_generate_returns_answer_with_citation_from_evidence(client):
+@patch("app._get_generation_service")
+def test_rag_generate_returns_answer_with_citation_from_evidence(
+    get_generation_service, client
+):
+    generation_service = Mock()
+    generation_service.generate.return_value = (
+        "육아휴직은 관련 규정에 따라 신청할 수 있습니다.",
+        [5001],
+    )
+    get_generation_service.return_value = generation_service
     evidence = [
         {
             "document_version_id": 101,
@@ -131,6 +140,10 @@ def test_rag_generate_returns_answer_with_citation_from_evidence(client):
     assert isinstance(response_body["cited_chunk_ids"], list)
     assert set(response_body["cited_chunk_ids"]).issubset(
         {item["chunk_id"] for item in evidence}
+    )
+    generation_service.generate.assert_called_once_with(
+        "육아휴직 규정을 알려주세요",
+        evidence,
     )
 
 
