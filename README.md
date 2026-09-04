@@ -2,7 +2,7 @@
 
 일본 신입사원을 위한 사내 규정 안내 RAG 서비스의 Python AI 서버입니다.
 
-현재 초기 버전은 Flask 기반 상태 확인 API만 제공합니다.
+Flask 기반으로 임베딩, RAG 검색 및 답변 생성 API를 제공합니다.
 
 ## 기술 구성
 
@@ -35,7 +35,7 @@ Python 3.12를 사용합니다.
 ## 실행
 
     source .venv/bin/activate
-    python -m flask --app app run --port 5001
+    python app.py
 
 기본 주소:
 
@@ -67,6 +67,16 @@ Python 3.12를 사용합니다.
     cp .env.example .env
 
 실제 API 키, 비밀번호, 사내 문서 및 개인정보는 GitHub에 올리지 않습니다.
+
+로컬 기본 실행 설정은 `127.0.0.1:5001`, development debug mode입니다.
+Docker 등 외부 접근이 필요한 production 실행 환경에서는 다음 값을 설정합니다.
+
+    FLASK_ENV=production
+    FLASK_HOST=0.0.0.0
+    FLASK_PORT=5001
+
+AI 서비스는 Spring Backend를 호출하지 않으므로 `SPRING_BACKEND_URL`은
+필요하지 않습니다. Spring Backend가 AI 서비스의 API를 호출합니다.
 
 ## 저장소에 포함하지 않는 항목
 

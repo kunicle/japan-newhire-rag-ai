@@ -14,6 +14,26 @@ app = Flask(__name__)
 RAG_SEARCH_LIMIT = 5
 
 
+def get_flask_runtime_config():
+    flask_env = os.getenv("FLASK_ENV", "development").strip().lower()
+    flask_host = os.getenv("FLASK_HOST", "127.0.0.1")
+    flask_port_value = os.getenv("FLASK_PORT", "5001")
+
+    try:
+        flask_port = int(flask_port_value)
+    except ValueError as error:
+        raise ValueError("FLASK_PORT must be an integer") from error
+
+    if not 1 <= flask_port <= 65535:
+        raise ValueError("FLASK_PORT must be between 1 and 65535")
+
+    return {
+        "host": flask_host,
+        "port": flask_port,
+        "debug": flask_env == "development",
+    }
+
+
 def _get_embedding_service():
     service = app.extensions.get("embedding_service")
     if service is None:
@@ -202,8 +222,4 @@ def embed():
 
 
 if __name__ == "__main__":
-    app.run(
-        host="127.0.0.1",
-        port=5001,
-        debug=True,
-    )
+    app.run(**get_flask_runtime_config())
