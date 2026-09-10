@@ -71,6 +71,15 @@ def main():
                 f"{r['id']}: NEEDS_MANUAL_REVIEW row must not finalize new evidence"
             )
 
+    by_id = {record["id"]: record for record in records}
+    stale_refund = by_id["RAG-EVAL-0054"]
+    if stale_refund["stale_premise_regression_case"] is not True:
+        errors.append("RAG-EVAL-0054: stale_premise_regression_case must be true")
+    if stale_refund["question_text_review_needed"] is not False:
+        errors.append("RAG-EVAL-0054: question_text_review_needed must be false")
+    if not stale_refund.get("stale_premise_regression_note"):
+        errors.append("RAG-EVAL-0054: stale-premise note is missing")
+
     split_by_disposition = Counter((r["disposition"], r["split"]) for r in records)
 
     print("Rows checked:", len(records))

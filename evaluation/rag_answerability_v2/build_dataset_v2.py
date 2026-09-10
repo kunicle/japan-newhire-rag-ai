@@ -34,6 +34,10 @@ def build_row(v1_row, audit_row):
         )
         row["notes"] = (row.get("notes") or "") + migration_note
 
+    stale_premise_note = audit_row.get("stale_premise_regression_note")
+    if stale_premise_note:
+        row["notes"] += f" [v2.0.0: {stale_premise_note}]"
+
     return {field: row[field] for field in CANONICAL_FIELDS}
 
 

@@ -134,7 +134,17 @@ WELCOME_FINAL_QUESTION_TEXT = {
 # answer is "No, the current evidence is 82,000 points" -- testing
 # whether the system correctly contradicts an outdated premise rather
 # than confirming it. Not the same treatment as the three rows above.
-STALE_PREMISE_REGRESSION_IDS = {"RAG-EVAL-0094"}
+STALE_PREMISE_REGRESSION_NOTES = {
+    "RAG-EVAL-0054": (
+        "철회된 과거 금액 73,000을 의도적으로 포함하지만, "
+        "현재 정책의 환불 가능 여부를 검증하는 stale-premise 회귀 케이스"
+    ),
+    "RAG-EVAL-0094": (
+        "철회된 과거 금액 73,000과 현재 금액 82,000을 직접 대조하는 "
+        "stale-premise 회귀 케이스"
+    ),
+}
+STALE_PREMISE_REGRESSION_IDS = set(STALE_PREMISE_REGRESSION_NOTES)
 
 
 def classify(row):
@@ -330,6 +340,7 @@ def main():
                 "final_question_text": WELCOME_FINAL_QUESTION_TEXT.get(row_id, original_question),
                 "question_text_changed": row_id in WELCOME_FINAL_QUESTION_TEXT,
                 "stale_premise_regression_case": row_id in STALE_PREMISE_REGRESSION_IDS,
+                "stale_premise_regression_note": STALE_PREMISE_REGRESSION_NOTES.get(row_id),
             }
             out.write(json.dumps(record, ensure_ascii=False) + "\n")
 

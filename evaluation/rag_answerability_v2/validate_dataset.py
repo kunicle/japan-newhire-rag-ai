@@ -78,6 +78,21 @@ def main():
             errors.append(f"{row_id}: approved question text mismatch")
     if by_id["RAG-EVAL-0094"]["question"] != v1_rows["RAG-EVAL-0094"]["question"]:
         errors.append("RAG-EVAL-0094 stale-premise question was not preserved")
+    stale_refund = by_id["RAG-EVAL-0054"]
+    original_stale_refund = v1_rows["RAG-EVAL-0054"]
+    for field in (
+        "question", "globalAnswerable", "hardNegativeType", "split",
+    ):
+        if stale_refund[field] != original_stale_refund[field]:
+            errors.append(f"RAG-EVAL-0054: {field} changed")
+    if stale_refund["requiredFacts"] != ["not refundable for cash"]:
+        errors.append("RAG-EVAL-0054: requiredFacts changed")
+    if stale_refund["expectedDocumentVersionIds"] != [16]:
+        errors.append("RAG-EVAL-0054: expected version evidence must be [16]")
+    if stale_refund["expectedChunkIds"] != [16]:
+        errors.append("RAG-EVAL-0054: expected chunk evidence must be [16]")
+    if "stale-premise 회귀 케이스" not in stale_refund["notes"]:
+        errors.append("RAG-EVAL-0054: stale-premise purpose missing from notes")
 
     print("Rows:", len(rows))
     print("Canonical fields:", len(schema["required"]))

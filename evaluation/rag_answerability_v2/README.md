@@ -365,7 +365,7 @@ against chunk16's actual facts. Three sub-cases, now distinguished in
 - 10 rows: fact value changed (amount, days, department name) but the
   question is asked generically ("얼마인가요?" / "어디인가요?") → only
   `requiredFacts` needs a new value, question text is fine as-is.
-- 4 rows (`RAG-EVAL-0053`, `0094`, `0096`, `0160`) bake the *old numeric
+- 5 rows (`RAG-EVAL-0053`, `0054`, `0094`, `0096`, `0160`) bake a numeric
   value* directly into the question as a yes/no confirmation or a
   boundary comparison.
 
@@ -375,11 +375,27 @@ as `final_question_text`/`question_text_changed`/`stale_premise_regression_case`
 | id | 처리 | 최종 질문 | 최종 requiredFacts |
 |---|---|---|---|
 | `RAG-EVAL-0053` | 문구 재작성(승인) | "입사한 지 15일인데 포인트가 안 들어왔다면 지급 기준을 넘긴 건가요?" | within 14 days; 15 days exceeds the window (정답: 예, 원본과 동일 극성) |
+| `RAG-EVAL-0054` | **문구 유지(승인)** — stale-premise 환불 정책 회귀 케이스 | "지급받은 7만3천 포인트를 돈으로 돌려받을 수 있나요?" (변경 없음) | not refundable for cash — 철회된 과거 금액이 섞여 있어도 현재 환불 정책을 적용하는지 검증 |
 | `RAG-EVAL-0096` | 문구 재작성(승인) | "입사 14일 안에 포인트가 들어오는 정책인가요?" | within 14 days |
 | `RAG-EVAL-0160` | 문구 재작성(승인) | "경력 입사자도 82,000포인트를 받나요?" | (negative, 라벨/hardNegativeType 불변) |
 | `RAG-EVAL-0094` | **문구 유지(승인)** — stale-premise 회귀 케이스로 의도적 보존 | "신입 복지 포인트 금액이 7만3천 포인트인가요?" (변경 없음) | 82000 points — 정답은 "아니오, 현재 근거는 82,000점"; 질문의 옛 수치(73,000)를 그대로 두어 철회된 문서의 수치를 현재값과 혼동하지 않는지 검증하는 대조 케이스로 유지 |
 
-`RAG-EVAL-0094`는 나머지 3행과 다른 처리 방식임에 유의 — 세 행은 "새 경계값으로 질문 자체를 갱신"이지만, 0094는 "옛 값을 일부러 남겨 현재값과 대조시키는" 별도 성격의 회귀 테스트.
+`RAG-EVAL-0094`는 옛 금액을 현재 82,000점과 직접 대조하는 사례다.
+`RAG-EVAL-0054`는 옛 금액이 premise에 섞여 있어도 현재의 현금 환불
+불가 정책을 올바르게 적용하는지를 보는 별도 stale-premise 사례다.
+
+## Inherited test and leakage limitations
+
+The v2.0.0 TEST split is not a fully blind test. Many rows are inherited
+from v1.0.2 and were exposed to earlier threshold, reranker, NLI, and QA
+experiments, so their results are regression evidence and must not be
+reported as performance on a previously unused holdout set.
+
+Known cross-split near-duplicate and semantic leakage limitations also
+remain inherited from v1.0.2. For example, `RAG-EVAL-0056` and
+`RAG-EVAL-0158` are near-equivalent questions about the same WELCOME
+expiration fact. This limitation should be considered when interpreting
+TEST, TRAIN, and VALIDATION results; v2.0.0 does not claim to eliminate it.
 
 ## Reproduce and validate
 
