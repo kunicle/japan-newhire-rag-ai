@@ -175,8 +175,8 @@ def rag_generate():
     ):
         return jsonify(error="malformed request"), 400
 
-    answer, citations = _get_generation_service().generate(question, evidence)
-    return jsonify(answer=answer, cited_chunk_ids=citations)
+    status, answer, citations = _get_generation_service().generate(question, evidence)
+    return jsonify(status=status, answer=answer, citations=citations)
 
 
 @app.post("/embed")

@@ -107,6 +107,7 @@ def test_rag_generate_returns_answer_with_citation_from_evidence(
 ):
     generation_service = Mock()
     generation_service.generate.return_value = (
+        "ANSWERED",
         "육아휴직은 관련 규정에 따라 신청할 수 있습니다.",
         [5001],
     )
@@ -136,15 +137,42 @@ def test_rag_generate_returns_answer_with_citation_from_evidence(
 
     assert response.status_code == 200
     response_body = response.get_json()
-    assert "answer" in response_body
-    assert isinstance(response_body["cited_chunk_ids"], list)
-    assert set(response_body["cited_chunk_ids"]).issubset(
+    assert response_body["status"] == "ANSWERED"
+    assert response_body["answer"] == "육아휴직은 관련 규정에 따라 신청할 수 있습니다."
+    assert isinstance(response_body["citations"], list)
+    assert set(response_body["citations"]).issubset(
         {item["chunk_id"] for item in evidence}
     )
     generation_service.generate.assert_called_once_with(
         "육아휴직 규정을 알려주세요",
         evidence,
     )
+
+
+@patch("app._get_generation_service")
+def test_rag_generate_returns_normalized_insufficient_evidence(
+    get_generation_service, client
+):
+    generation_service = Mock()
+    generation_service.generate.return_value = (
+        "INSUFFICIENT_EVIDENCE",
+        None,
+        [],
+    )
+    get_generation_service.return_value = generation_service
+    evidence = [{"chunk_id": 5001, "content": "정규직 신청 규정"}]
+
+    response = client.post(
+        "/rag/generate",
+        json={"question": "계약직도 신청 가능한가요?", "evidence": evidence},
+    )
+
+    assert response.status_code == 200
+    assert response.get_json() == {
+        "status": "INSUFFICIENT_EVIDENCE",
+        "answer": None,
+        "citations": [],
+    }
 
 
 @pytest.mark.parametrize(
