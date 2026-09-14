@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "rag-answerability-eval-v1.schema.json",
+  "title": "RAG Evaluation Dataset v1 Row",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id", "question", "globalAnswerable", "answerType", "questionStyle",
+    "difficulty", "expectedDocumentVersionIds", "expectedChunkIds",
+    "requiredFacts", "hardNegativeType", "relevantDocumentVersionIds",
+    "requiresConversationContext", "inPrimaryMetrics", "split", "source",
+    "notes", "documentTopic", "documentCategory"
+  ],
+  "properties": {
+    "id": {"type": "string", "pattern": "^RAG-EVAL-[0-9]{4}$"},
+    "question": {"type": "string", "minLength": 1},
+    "globalAnswerable": {"type": "boolean"},
+    "answerType": {"enum": ["NUMERIC", "DATE_TIME", "DURATION", "BOOLEAN", "PERSON_ROLE", "DEPARTMENT", "LOCATION_CHANNEL", "PROCEDURE", "ELIGIBILITY", "LIMIT", "TEXT_FACT", "MULTI_FACT"]},
+    "questionStyle": {"enum": ["LITERAL", "PARAPHRASE", "INDIRECT", "CONTEXT_OMITTED", "COMPARISON", "NEGATION", "MULTI_HOP", "AMBIGUOUS"]},
+    "difficulty": {"enum": ["EASY", "MEDIUM", "HARD"]},
+    "expectedDocumentVersionIds": {"type": "array", "items": {"type": "integer", "minimum": 1}, "uniqueItems": true},
+    "expectedChunkIds": {"type": "array", "items": {"type": "integer", "minimum": 1}, "uniqueItems": true},
+    "requiredFacts": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "hardNegativeType": {"type": ["string", "null"], "enum": [null, "UNSUPPORTED_ATTRIBUTE", "UNSUPPORTED_ELIGIBILITY", "UNSUPPORTED_PROCESS", "UNSUPPORTED_EXCEPTION", "UNSUPPORTED_TIMING", "UNSUPPORTED_PERSON", "SAME_TOPIC_HALLUCINATION_TRAP", "CROSS_DOCUMENT_CONFUSION", "OUT_OF_CORPUS"]},
+    "relevantDocumentVersionIds": {"type": "array", "items": {"type": "integer", "minimum": 1}, "uniqueItems": true},
+    "requiresConversationContext": {"type": "boolean"},
+    "inPrimaryMetrics": {"type": "boolean"},
+    "split": {"enum": ["TRAIN", "VALIDATION", "TEST"]},
+    "source": {"enum": ["ORIGINAL_60_REGRESSION", "V1_EXPANSION"]},
+    "notes": {"type": "string"},
+    "documentTopic": {"enum": ["MENTOR", "LEAVE", "REMOTE", "WELCOME", "CAFE", "HR_BUDGET"]},
+    "documentCategory": {"enum": ["ONBOARDING", "BENEFITS"]}
+  }
+}
